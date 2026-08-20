@@ -168,6 +168,9 @@ def main():
                 else:
                     # Streaming finished
                     print("\n")
+                    if update.get("saved_recipe"):
+                        saved = update["saved_recipe"]
+                        print(f"[SYSTEM] Saved new recipe to database: {saved['title']}\n")
                     
         except KeyboardInterrupt:
             print("\n\nChef: Leaving in a hurry? Bon appétit!")

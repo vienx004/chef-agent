@@ -27,3 +27,20 @@ class BaseRetriever(abc.ABC):
                 - 'steps': List of instructions (optional)
         """
         pass
+
+    @abc.abstractmethod
+    def add_recipe(self, recipe: Dict[str, Any]) -> None:
+        """
+        Adds or updates a recipe in the database storage.
+
+        Args:
+            recipe (Dict[str, Any]): A recipe dictionary containing:
+                - 'title': Title of the recipe (str)
+                - 'description': Brief summary of the recipe (str)
+                - 'ingredients': List of ingredients (List[str])
+                - 'steps': List of instructions (List[str])
+                - 'keywords': Relevant tags (List[str])
+                - 'id': Optional unique string ID
+        """
+        pass
+

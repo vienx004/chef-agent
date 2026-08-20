@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict, Optional, Union, Generator
+from typing import List, Dict, Optional, Union, Generator, Any
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
@@ -154,3 +154,39 @@ class GeminiLLM(BaseLLM):
             raise RuntimeError(f"Gemini embedding API call failed: {e.message} (status_code: {e.code})") from e
         except Exception as e:
             raise RuntimeError(f"An unexpected error occurred during embedding generation: {str(e)}") from e
+
+    def extract_structured_data(self, text: str, schema_class: type) -> Optional[Any]:
+        """
+        Analyzes unstructured text and extracts structured fields matching a Pydantic BaseModel schema.
+        Uses Gemini's built-in structured JSON output capability.
+
+        Args:
+            text (str): The raw text data.
+            schema_class (type): The Pydantic model class defining the desired schema structure.
+
+        Returns:
+            Optional[Any]: An instance of schema_class filled with extracted data, or None if extraction fails.
+        """
+        if not text:
+            return None
+
+        # Build structured generation config forcing json format matching schema_class
+        config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=schema_class,
+            temperature=0.0  # Keep it deterministic for high-fidelity extraction
+        )
+
+        try:
+            # We call the model with a system context prompt instructing it to extract the information
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=f"Analyze the following conversation block and extract the relevant data structured exactly to match the schema:\n\n{text}",
+                config=config
+            )
+            # The parsed field is automatically populated by the SDK with the Pydantic instance
+            return response.parsed
+        except Exception as e:
+            logger.error(f"Structured data extraction failed: {str(e)}")
+            return None
+

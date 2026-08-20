@@ -1,5 +1,5 @@
 import unittest
-from typing import List, Dict, Optional, Union, Generator
+from typing import List, Dict, Optional, Union, Generator, Any
 
 from chef_agent.llm.base import BaseLLM
 
@@ -8,8 +8,9 @@ class MockLLM(BaseLLM):
     Mock implementation of BaseLLM used for local testing without calling APIs.
     """
 
-    def __init__(self, response_text: str = "Chef Response"):
+    def __init__(self, response_text: str = "Chef Response", mock_structured_data: Optional[Any] = None):
         self.response_text = response_text
+        self.mock_structured_data = mock_structured_data
         self.last_prompt: Optional[str] = None
         self.last_system_instruction: Optional[str] = None
         self.last_history: Optional[List[Dict[str, str]]] = None
@@ -34,6 +35,11 @@ class MockLLM(BaseLLM):
     def get_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Mock implementation returning dummy embeddings."""
         return [[0.1 * i for i in range(3)] for _ in texts]
+
+    def extract_structured_data(self, text: str, schema_class: type) -> Optional[Any]:
+        """Mock implementation returning configured structured data."""
+        return self.mock_structured_data
+
 
 
 

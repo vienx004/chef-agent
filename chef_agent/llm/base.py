@@ -1,5 +1,5 @@
 import abc
-from typing import List, Dict, Optional, Union, Generator
+from typing import List, Dict, Optional, Union, Generator, Any
 
 class BaseLLM(abc.ABC):
     """
@@ -44,4 +44,19 @@ class BaseLLM(abc.ABC):
             List[List[float]]: List of float vector embeddings corresponding to the input texts.
         """
         pass
+
+    @abc.abstractmethod
+    def extract_structured_data(self, text: str, schema_class: type) -> Optional[Any]:
+        """
+        Analyzes unstructured text and extracts structured fields matching a Pydantic BaseModel schema.
+
+        Args:
+            text (str): The raw text data.
+            schema_class (type): The Pydantic model class defining the desired schema structure.
+
+        Returns:
+            Optional[Any]: An instance of schema_class filled with extracted data, or None if extraction fails.
+        """
+        pass
+
 

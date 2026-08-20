@@ -12,10 +12,14 @@ class MockRetriever(BaseRetriever):
     def __init__(self, stub_results: List[Dict[str, Any]]):
         self.stub_results = stub_results
         self.last_query = None
+        self.added_recipes = []
 
     def retrieve(self, query: str, limit: int = 3) -> List[Dict[str, Any]]:
         self.last_query = query
         return self.stub_results[:limit]
+
+    def add_recipe(self, recipe: Dict[str, Any]) -> None:
+        self.added_recipes.append(recipe)
 
 
 class TestChefAgent(unittest.TestCase):
@@ -90,6 +94,29 @@ class TestChefAgent(unittest.TestCase):
         
         self.agent.clear_history()
         self.assertEqual(len(self.agent.history), 0)
+
+    def test_agent_auto_saves_generated_recipe(self):
+        """Verifies that the agent automatically extracts and saves a recipe when detected in response."""
+        from chef_agent.agent import RecipeExtractionSchema
+        mock_extracted = RecipeExtractionSchema(
+            is_recipe=True,
+            title="Garlic Fried Rice",
+            description="Fluffy garlic rice",
+            ingredients=["rice", "garlic"],
+            steps=["Fry garlic", "Toss rice"],
+            keywords=["garlic", "rice"]
+        )
+        self.mock_llm.mock_structured_data = mock_extracted
+
+        # Add message
+        result = self.agent.add_user_message("How do I make garlic rice?")
+
+        # Assertions
+        self.assertEqual(len(self.mock_retriever.added_recipes), 1)
+        saved = self.mock_retriever.added_recipes[0]
+        self.assertEqual(saved["title"], "Garlic Fried Rice")
+        self.assertEqual(saved["ingredients"], ["rice", "garlic"])
+        self.assertEqual(result["saved_recipe"]["title"], "Garlic Fried Rice")
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,11 +1,23 @@
 import logging
 from typing import List, Dict, Optional, Union, Generator, Any
+from pydantic import BaseModel, Field
 
 from chef_agent.config import CHEF_SYSTEM_INSTRUCTION
 from chef_agent.llm.base import BaseLLM
 from chef_agent.rag.base import BaseRetriever
 
 logger = logging.getLogger(__name__)
+
+class RecipeExtractionSchema(BaseModel):
+    """
+    Pydantic schema to extract structured recipe data from the model's chat output.
+    """
+    is_recipe: bool = Field(description="True if the text contains a complete recipe with a title, ingredients, and instructions. False otherwise.")
+    title: Optional[str] = Field(None, description="The name/title of the recipe.")
+    description: Optional[str] = Field(None, description="A brief mouth-watering summary description of the dish.")
+    ingredients: Optional[List[str]] = Field(None, description="List of ingredients with measurements.")
+    steps: Optional[List[str]] = Field(None, description="List of cooking instructions/steps.")
+    keywords: Optional[List[str]] = Field(None, description="Relevant tags (e.g. baking, dessert, chicken, dinner).")
 
 class ChefAgent:
     """
@@ -117,9 +129,13 @@ class ChefAgent:
         self.history.append({"role": "user", "content": user_message})
         self.history.append({"role": "model", "content": response_text})
 
+        # 4. Check if LLM response contains a new recipe, and save to database if so
+        saved_recipe = self._check_and_save_recipe(response_text)
+
         return {
             "response": response_text,
-            "retrieved_docs": retrieved_docs
+            "retrieved_docs": retrieved_docs,
+            "saved_recipe": saved_recipe
         }
 
     def add_user_message_stream(self, user_message: str) -> Generator[Dict[str, Any], None, None]:
@@ -164,9 +180,44 @@ class ChefAgent:
         self.history.append({"role": "user", "content": user_message})
         self.history.append({"role": "model", "content": full_response})
 
+        # 4. Check if LLM response contains a new recipe, and save to database if so
+        saved_recipe = self._check_and_save_recipe(full_response)
+
         yield {
             "chunk": "",
             "retrieved_docs": None,
             "complete": True,
-            "full_response": full_response
+            "full_response": full_response,
+            "saved_recipe": saved_recipe
         }
+
+    def _check_and_save_recipe(self, response_text: str) -> Optional[Dict[str, Any]]:
+        """
+        Helper method to analyze the Chef's response, extract structured recipes if present,
+        and save them to the configured retriever.
+        """
+        if not self.retriever:
+            return None
+
+        try:
+            # Call structured extraction on the LLM client
+            extracted = self.llm.extract_structured_data(response_text, RecipeExtractionSchema)
+            
+            if extracted and extracted.is_recipe and extracted.title and extracted.ingredients and extracted.steps:
+                # Convert Pydantic object to database-compatible dictionary
+                recipe_dict = {
+                    "id": extracted.title.lower().strip().replace(" ", "-"),
+                    "title": extracted.title,
+                    "description": extracted.description or "",
+                    "ingredients": extracted.ingredients,
+                    "steps": extracted.steps,
+                    "keywords": extracted.keywords or []
+                }
+                
+                # Insert into local JSON file or ChromaDB
+                self.retriever.add_recipe(recipe_dict)
+                return recipe_dict
+        except Exception as e:
+            logger.error(f"Failed to auto-extract or save recipe: {e}", exc_info=True)
+            
+        return None

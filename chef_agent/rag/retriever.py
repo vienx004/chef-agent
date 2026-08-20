@@ -92,3 +92,42 @@ class JSONRecipeRetriever(BaseRetriever):
         retrieved_recipes = [recipe for _, recipe in matches[:limit]]
         logger.debug(f"Retrieved {len(retrieved_recipes)} matches for query '{query}'")
         return retrieved_recipes
+
+    def add_recipe(self, recipe: Dict[str, Any]) -> None:
+        """
+        Appends a recipe to the local in-memory database and writes it to recipes.json.
+
+        Args:
+            recipe (Dict[str, Any]): Recipe dict containing title, ingredients, etc.
+        """
+        title = recipe.get("title", "")
+        if not title:
+            logger.warning("Attempted to add a recipe with no title. Skipping.")
+            return
+
+        recipe_id = recipe.get("id") or title.lower().strip().replace(" ", "-")
+        recipe["id"] = recipe_id
+
+        # Check if a recipe with this ID or title already exists in the file
+        existing_idx = -1
+        for idx, r in enumerate(self.recipes):
+            if r.get("id") == recipe_id or r.get("title", "").lower().strip() == title.lower().strip():
+                existing_idx = idx
+                break
+
+        if existing_idx != -1:
+            self.recipes[existing_idx] = recipe
+            logger.info(f"Updated recipe '{title}' in JSON database.")
+        else:
+            self.recipes.append(recipe)
+            logger.info(f"Added new recipe '{title}' to JSON database.")
+
+        # Save to database file
+        try:
+            # Ensure the parent directory exists
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.db_path, "w", encoding="utf-8") as f:
+                json.dump(self.recipes, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"Failed to save recipe database to file {self.db_path}: {e}")
+

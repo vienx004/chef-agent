@@ -207,3 +207,57 @@ class ChromaRecipeRetriever(BaseRetriever):
         except Exception as e:
             logger.error(f"Error executing ChromaDB retrieval: {str(e)}", exc_info=True)
             return []
+
+    def add_recipe(self, recipe: Dict[str, Any]) -> None:
+        """
+        Embeds the recipe text content and upserts it into the Chroma DB collection.
+
+        Args:
+            recipe (Dict[str, Any]): Recipe dict containing title, ingredients, etc.
+        """
+        title = recipe.get("title", "")
+        if not title:
+            logger.warning("Attempted to add a recipe with no title to ChromaDB. Skipping.")
+            return
+
+        description = recipe.get("description", "")
+        ingredients = recipe.get("ingredients", [])
+        steps = recipe.get("steps", [])
+        keywords = recipe.get("keywords", [])
+
+        # Construct a rich text representation to generate vector embedding for semantic search
+        doc_text = f"Recipe: {title}\nDescription: {description}\n"
+        doc_text += "Ingredients:\n" + "\n".join(f"- {i}" for i in ingredients) + "\n"
+        doc_text += "Directions:\n" + "\n".join(f"{idx+1}. {s}" for idx, s in enumerate(steps)) + "\n"
+        doc_text += "Keywords: " + ", ".join(keywords)
+
+        # Serialize list fields to JSON strings for Chroma metadata storage
+        metadata = {
+            "title": title,
+            "description": description,
+            "ingredients": json.dumps(ingredients),
+            "steps": json.dumps(steps),
+            "keywords": ",".join(keywords)
+        }
+
+        recipe_id = recipe.get("id") or title.lower().strip().replace(" ", "-")
+
+        try:
+            # 1. Generate embedding using pluggable LLM
+            embeddings = self.llm.get_embeddings([doc_text])
+            if not embeddings:
+                logger.error(f"Failed to generate embedding for recipe '{title}'. Upsert aborted.")
+                return
+            vector = embeddings[0]
+
+            # 2. Upsert (inserts if new, updates if ID exists)
+            self.collection.upsert(
+                ids=[recipe_id],
+                documents=[doc_text],
+                embeddings=[vector],
+                metadatas=[metadata]
+            )
+            logger.info(f"Successfully upserted recipe '{title}' to ChromaDB.")
+        except Exception as e:
+            logger.error(f"Failed to upsert recipe '{title}' to ChromaDB: {e}", exc_info=True)
+
