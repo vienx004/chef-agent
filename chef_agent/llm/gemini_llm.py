@@ -12,14 +12,14 @@ class GeminiLLM(BaseLLM):
     Provides concrete implementations for generating synchronous and streaming responses.
     """
 
-    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-2.5-flash"):
+    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-3.6-flash"):
         """
         Initializes the Gemini client.
 
         Args:
             api_key (str, optional): The Gemini API key. If not provided, will look for the 
                 GEMINI_API_KEY environment variable.
-            model_name (str): Model name string. Defaults to "gemini-2.5-flash".
+            model_name (str): Model name string. Defaults to "gemini-3.6-flash".
         """
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         self.model_name = model_name
@@ -130,3 +130,27 @@ class GeminiLLM(BaseLLM):
             raise RuntimeError(f"Gemini API request failed: {e.message} (status_code: {e.code})") from e
         except Exception as e:
             raise RuntimeError(f"An unexpected error occurred during LLM generation: {str(e)}") from e
+    def get_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """
+        Generates vector embeddings for a list of input texts using Gemini's gemini-embedding-001.
+
+        Args:
+            texts (List[str]): List of strings to be vectorized.
+
+        Returns:
+            List[List[float]]: List of vector embeddings (lists of floats).
+        """
+        if not texts:
+            return []
+
+        try:
+            # Generate embeddings using the official SDK call
+            response = self.client.models.embed_content(
+                model="gemini-embedding-001",
+                contents=texts
+            )
+            return [emb.values for emb in response.embeddings]
+        except APIError as e:
+            raise RuntimeError(f"Gemini embedding API call failed: {e.message} (status_code: {e.code})") from e
+        except Exception as e:
+            raise RuntimeError(f"An unexpected error occurred during embedding generation: {str(e)}") from e

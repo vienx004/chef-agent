@@ -2,7 +2,7 @@ import sys
 import logging
 from chef_agent import config
 from chef_agent.llm import GeminiLLM
-from chef_agent.rag import JSONRecipeRetriever
+from chef_agent.rag import JSONRecipeRetriever, ChromaRecipeRetriever
 from chef_agent.agent import ChefAgent
 from chef_agent.tools import CulinaryConverter
 
@@ -16,9 +16,9 @@ logger = logging.getLogger("main")
 def print_welcome_banner():
     """Prints a styled startup banner for the Chef Agent."""
     print("=" * 70)
-    print("          👨‍🍳  WELCOME TO THE SOUSCHEF AI AGENT CLI  🍳          ")
+    print("          *** WELCOME TO THE CHEF AI AGENT CLI ***          ")
     print("=" * 70)
-    print("Chef SousGemini is ready to design menus, write recipes, and consult on")
+    print("Chef Gemini is ready to design menus, write recipes, and consult on")
     print("culinary science.")
     print("\nAvailable Special Commands:")
     print("  /convert <value> <unit> [ingredient]  - Convert culinary measurements")
@@ -29,7 +29,11 @@ def print_welcome_banner():
     print("  /exit or /quit                        - Leave the kitchen")
     print("=" * 70)
     print(f"Active Backend: Gemini ({config.LLM_PROVIDER})")
-    print(f"Recipe DB Path: {config.RECIPE_DB_PATH}")
+    print(f"RAG Provider:   {config.RAG_PROVIDER.upper()}")
+    if config.RAG_PROVIDER == "chroma":
+        print(f"Chroma DB Path: {config.CHROMA_DB_PATH}")
+    else:
+        print(f"Recipe DB Path: {config.RECIPE_DB_PATH}")
     print("=" * 70 + "\n")
 
 def handle_conversion_command(cmd_args: list) -> str:
@@ -56,19 +60,19 @@ def handle_conversion_command(cmd_args: list) -> str:
 
     if unit in ["f", "fahrenheit"]:
         celsius = CulinaryConverter.fahrenheit_to_celsius(val)
-        return f"🌡️  {val}°F is approximately {celsius}°C"
+        return f"[TEMP] {val}°F is approximately {celsius}°C"
     
     elif unit in ["c", "celsius"]:
         fahr = CulinaryConverter.celsius_to_fahrenheit(val)
-        return f"🌡️  {val}°C is approximately {fahr}°F"
+        return f"[TEMP] {val}°C is approximately {fahr}°F"
 
     elif unit in ["oz", "ounces", "ounce"]:
         grams = CulinaryConverter.ounces_to_grams(val)
-        return f"⚖️  {val} oz is approximately {grams}g"
+        return f"[WEIGHT] {val} oz is approximately {grams}g"
 
     elif unit in ["g", "grams", "gram"]:
         oz = CulinaryConverter.grams_to_ounces(val)
-        return f"⚖️  {val}g is approximately {oz} oz"
+        return f"[WEIGHT] {val}g is approximately {oz} oz"
 
     elif unit in ["cup", "cups"]:
         ingredient = "liquid"
@@ -76,7 +80,7 @@ def handle_conversion_command(cmd_args: list) -> str:
             ingredient = " ".join(cmd_args[2:])
         
         grams = CulinaryConverter.cups_to_grams(val, ingredient)
-        return f"🥣  {val} cup(s) of '{ingredient}' is approximately {grams}g"
+        return f"[VOLUME] {val} cup(s) of '{ingredient}' is approximately {grams}g"
 
     else:
         return f"Error: Unsupported unit '{unit}'. Use 'f', 'c', 'oz', 'g', or 'cups'."
@@ -102,8 +106,15 @@ def main():
         sys.exit(1)
 
     # 3. Instantiate Retriever (RAG)
-    # Using JSONRecipeRetriever as a placeholder for a Vector DB
-    retriever = JSONRecipeRetriever(db_path=config.RECIPE_DB_PATH)
+    # Choose between Vector (Chroma) and Keyword (JSON) search
+    if config.RAG_PROVIDER == "chroma":
+        retriever = ChromaRecipeRetriever(
+            llm=llm_client,
+            db_path=config.CHROMA_DB_PATH,
+            seed_json_path=config.RECIPE_DB_PATH
+        )
+    else:
+        retriever = JSONRecipeRetriever(db_path=config.RECIPE_DB_PATH)
 
     # 4. Instantiate Agent Coordinator
     agent = ChefAgent(llm_client=llm_client, retriever=retriever)
@@ -122,12 +133,12 @@ def main():
             cmd = parts[0].lower()
 
             if cmd in ["/exit", "/quit"]:
-                print("\nChef: Keep cooking! Until next time. Bon appétit! 👋")
+                print("\nChef: Keep cooking! Until next time. Bon appétit!")
                 break
 
             elif cmd == "/clear":
                 agent.clear_history()
-                print("\n✨ Chat history cleared! Starting a clean slate.\n")
+                print("\n[SYSTEM] Chat history cleared! Starting a clean slate.\n")
                 continue
 
             elif cmd == "/convert":
@@ -159,10 +170,10 @@ def main():
                     print("\n")
                     
         except KeyboardInterrupt:
-            print("\n\nChef: Leaving in a hurry? Bon appétit! 👋")
+            print("\n\nChef: Leaving in a hurry? Bon appétit!")
             break
         except Exception as e:
-            print(f"\n❌ An error occurred: {e}\n")
+            print(f"\n[ERROR] An error occurred: {e}\n")
 
 if __name__ == "__main__":
     main()

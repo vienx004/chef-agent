@@ -31,3 +31,17 @@ class BaseLLM(abc.ABC):
             Union[str, Generator[str, None, None]]: The string response, or a generator yielding response chunks.
         """
         pass
+
+    @abc.abstractmethod
+    def get_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """
+        Generates vector embeddings for a list of input texts.
+
+        Args:
+            texts (List[str]): List of texts to generate vector embeddings for.
+
+        Returns:
+            List[List[float]]: List of float vector embeddings corresponding to the input texts.
+        """
+        pass
+

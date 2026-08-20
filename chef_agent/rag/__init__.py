@@ -6,5 +6,7 @@ relevant culinary documents, recipes, and tips to inject into the Chef's context
 """
 from chef_agent.rag.base import BaseRetriever
 from chef_agent.rag.retriever import JSONRecipeRetriever
+from chef_agent.rag.chroma_retriever import ChromaRecipeRetriever
 
-__all__ = ["BaseRetriever", "JSONRecipeRetriever"]
+__all__ = ["BaseRetriever", "JSONRecipeRetriever", "ChromaRecipeRetriever"]
+

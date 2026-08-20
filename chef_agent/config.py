@@ -19,8 +19,10 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # RAG / Database Config
-# Path to local JSON recipe database (defaults to data/recipes.json relative to project root)
+RAG_PROVIDER = os.getenv("RAG_PROVIDER", "chroma").lower()
 RECIPE_DB_PATH = os.getenv("RECIPE_DB_PATH", str(BASE_DIR / "data" / "recipes.json"))
+CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", str(BASE_DIR / "data" / "chroma_db"))
+
 
 # System Instruction defining the Chef's persona and styling rules
 CHEF_SYSTEM_INSTRUCTION = """

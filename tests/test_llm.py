@@ -31,6 +31,11 @@ class MockLLM(BaseLLM):
             return generator()
         return self.response_text
 
+    def get_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """Mock implementation returning dummy embeddings."""
+        return [[0.1 * i for i in range(3)] for _ in texts]
+
+
 
 class TestLLMInterface(unittest.TestCase):
     def test_mock_llm_instantiation(self):

@@ -120,4 +120,4 @@ env/
 
 # Project data
 # data/recipes.json
-
+data/chroma_db/
